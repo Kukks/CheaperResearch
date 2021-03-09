@@ -1,0 +1,39 @@
+@using CheaperResearch.Data
+@model System.Collections.Generic.List<CheaperResearch.Data.Module>
+
+@{
+    ViewBag.Title = "Modules";
+    Layout = "_Layout";
+}
+
+
+<table class="table">
+    <thead>
+    <tr>
+        <th>#</th>
+        <th>Module Name</th>
+        <th>Users</th>
+        <th>Admins</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var module in Model)
+    {
+        <tr>
+            <td>@module.Id</td>
+            <td>@module.Name</td>
+            <td>@module.ModuleUsers.Count(user => user.Role == ModuleUserRole.User) </td>
+            <td>@module.ModuleUsers.Count(user => user.Role == ModuleUserRole.Admin) </td>
+            <td>
+                <a asp-action="GetModule" asp-route-id="@module.Id">Manage Module</a>
+            </td>
+        </tr>
+    }
+    <tr>
+        <td colspan="5">
+            <a asp-action="CreateModule">Create new module</a>
+        </td>
+    </tr>
+    </tbody>
+</table>
