@@ -1,0 +1,67 @@
+@using CheaperResearch.Data
+@model CheaperResearch.Controllers.ListUsersVM
+
+@{
+    ViewBag.Title = "Users";
+    Layout = "_Layout";
+}
+
+
+<table class="table">
+    <thead>
+    <tr>
+        <th>Username</th>
+        <th>Roles</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var user in Model.Users)
+    {
+        <tr>
+            <td>@user.UserName</td>
+            <td>
+                @if (Model.ModuleAdmins.Contains(user.Id))
+                {
+                    <div class="badge badge-info">
+                        Module Admin
+                    </div>
+                }
+                @if (Model.ServerAdmins.Contains(user.Id))
+                {
+                    <div class="badge badge-info">
+                        Server Admin
+                    </div>
+                }
+
+            </td>
+            <td>
+                @if (Model.ModuleAdmins.Contains(user.Id))
+                {
+                    <a asp-action="ChangeRole" asp-route-action="remove" asp-route-role="@Constants.ModuleAdminRole" asp-route-userId="@user.Id">
+                        Remove as Module Admin
+                    </a>
+                }
+                else
+                {
+                    <a asp-action="ChangeRole" asp-route-action="add" asp-route-role="@Constants.ModuleAdminRole" asp-route-userId="@user.Id">
+                        Add as Module Admin
+                    </a>
+                }
+                @if (Model.ServerAdmins.Contains(user.Id))
+                {
+                    <a asp-action="ChangeRole" asp-route-action="remove" asp-route-role="@Constants.ServerAdminRole" asp-route-userId="@user.Id">
+                        Remove as Server Admin
+                    </a>
+                }
+                else
+                {
+                    <a asp-action="ChangeRole" asp-route-action="add" asp-route-role="@Constants.ServerAdminRole" asp-route-userId="@user.Id">
+                        Add as Server Admin
+                    </a>
+                }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

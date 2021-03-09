@@ -1,8 +1,57 @@
+@using CheaperResearch.Data
 @model System.Collections.Generic.List<CheaperResearch.Data.Module>
 
 @{
-    ViewBag.Title = "title";
+    ViewBag.Title = "Modules";
     Layout = "_Layout";
 }
 
-<h2>title</h2>
+
+<table class="table">
+    <thead>
+    <tr>
+        <th>#</th>
+        <th>Module Name</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var module in Model)
+    {
+        var moduser = module.ModuleUsers.First();
+        var progress = module.ModuleResults.FirstOrDefault();
+        <tr>
+            <td>@module.Id</td>
+            <td>@module.Name</td>
+            <td>
+                @if (moduser.Locked)
+                {
+                    <div class="badge badge-info">Locked</div>
+                }
+                else
+                {
+
+                    @if (module.Modules.Any())
+                    {
+                        <a asp-action="GetModules" asp-route-parentId="@module.Id">View Sub Modules</a>
+                    }
+                    @if (!string.IsNullOrEmpty(module.Blob))
+                    {
+
+                        <a asp-action="ViewModule" asp-route-id="@module.Id">View</a>
+                        if (progress?.Finished is true)
+                        {
+                            <div class="badge badge-success">Completed</div>
+                        }
+                        else if (progress is not null)
+                        {
+                            <div class="badge badge-success">Started</div>
+                        }
+                    }
+
+                }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

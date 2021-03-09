@@ -1,14 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.UI;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.EntityFrameworkCore;
 using CheaperResearch.Data;
+using CheaperResearch.Services;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -29,12 +24,28 @@ namespace CheaperResearch
         {
             services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlite(
+                    Configuration.GetConnectionString("DefaultConnection")), ServiceLifetime.Singleton);
+
+            services.AddDbContextFactory<ApplicationDbContext>(options =>
+                options.UseSqlite(
                     Configuration.GetConnectionString("DefaultConnection")));
             services.AddDatabaseDeveloperPageExceptionFilter();
 
-            services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
+            services.AddSingleton<ModuleManager>();
+
+            services.AddTransient<IStartupFilter, DatabaseMigrationStartupFilter>();
+            services.AddTransient<IStartupFilter, RolesCreationStartupFilter>();
+            services.AddDefaultIdentity<ApplicationUser>(options =>
+                {
+                    options.SignIn.RequireConfirmedAccount = false;
+                    options.Password.RequireDigit = false;
+                    options.Password.RequireUppercase= false;
+                    options.Password.RequireLowercase= false;
+                    options.Password.RequireNonAlphanumeric= false;
+                }) .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<ApplicationDbContext>();
-            services.AddControllersWithViews();
+            services.AddControllersWithViews().AddRazorRuntimeCompilation();
+
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -51,6 +62,7 @@ namespace CheaperResearch
                 // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
                 app.UseHsts();
             }
+
             app.UseHttpsRedirection();
             app.UseStaticFiles();
 

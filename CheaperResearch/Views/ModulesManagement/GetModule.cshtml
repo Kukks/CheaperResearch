@@ -1,34 +1,155 @@
+@using CheaperResearch.Data
+@using CheaperResearch.Services
+@using Microsoft.AspNetCore.Identity
 @model CheaperResearch.Data.Module
+@inject ModuleManager ModuleManager
+@inject UserManager<ApplicationUser> UserManager
 
 @{
     ViewBag.Title = $"Module {Model.Name} ({Model.Id})";
     Layout = "_Layout";
     ViewData.TryAdd("bodyoutsidecontainer", 1);
+    
+    var modules = (await ModuleManager.GetModules(new ModuleQuery())).Select(module => new SelectListItem($"{module.Name } ({module.Id})", module.Id)).Where(item => item.Value != Model.Id).ToList();
+    
+    modules.Insert(0, new SelectListItem() {Text = "No Parent", Value = null});
+    var users = UserManager.Users.ToList().Select(user => new SelectListItem($"{user.UserName}", user.Id));
+    var moduleAdminUsers = ( await UserManager.GetUsersInRoleAsync(Constants.ModuleAdminRole)).Select(user => new SelectListItem($"{user.UserName}", user.Id));
 }
 
 <div class="container">
     <h1>@ViewBag.Title</h1>
-    @if (string.IsNullOrEmpty(Model.Blob))
-    {
-        <p class="empty-blob">This module has no actual content linked to it. You can use it as a container for sub-modules. <a href="#"  onclick="toggleSurveyEditor()">Alternatively, you can add content by clicking here.</a></p>
-    }
-    <form method="post" asp-action="UpdateModule" id="mainForm">
-        <input type="hidden" asp-for="Id">
-        <div class="form-group">
-            <label asp-for="Name">Module Name</label>
-            <input type="text" class="form-control" asp-for="Name">
-            <span asp-validation-for="Name" class="text-danger"></span>
-        </div>
-        <input type="hidden" asp-for="Blob">
-        <button type="submit" class="btn btn-primary">Save</button>
-    </form>
 
+
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a href="#general" class="nav-link active" data-toggle="tab">General</a>
+        </li>
+        <li class="nav-item">
+            <a href="#content" class="nav-link" data-toggle="tab">Content</a>
+        </li>
+        <li class="nav-item">
+            <a href="#users" class="nav-link" data-toggle="tab">Users</a>
+        </li>
+        <li class="nav-item">
+            <a href="#submodules" class="nav-link" data-toggle="tab">Sub modules</a>
+        </li>
+    </ul>
 </div>
 
+<div class="tab-content">
+    <div class="tab-pane fade show active container" id="general">
+        <form method="post" asp-action="UpdateModule" id="mainForm" class="card">
+            <input type="hidden" asp-for="Id">
+            <div class="form-group">
+                <label asp-for="Name">Module Name</label>
+                <input type="text" class="form-control" asp-for="Name">
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                        <label asp-for="ParentModuleId">Parent Module Id</label>
+                <select
+                    class="form-control"
+                    asp-for="ParentModuleId"
+                            asp-items="modules" class="form-text text-muted">
+                            Parent module
+                        </select>
+            
+                        <span asp-validation-for="ParentModuleId" class="text-danger"></span>
+                    </div>
+            <input type="hidden" asp-for="Blob">
 
+            <button type="submit" class="btn btn-primary">Save</button>
+        </form>
 
+    </div>
+    <div class="tab-pane fade show container" id="submodules">
+        <ul class="list-group">
+            @foreach (var submodule in Model.Modules)
+            {
+                
+                <li class="list-group-item">@submodule.Name <a asp-action="GetModule" asp-route-id="@submodule.Id">View</a></li>
+            }
+            <li class="list-group-item"><a asp-action="CreateModule" asp-route-parentId="@Model.Id">Create sub module</a></li>
+        </ul>
+    </div>
+    <div class="tab-pane fade mt-2 pt-2" id="content">
+        
+             @if (string.IsNullOrEmpty(Model.Blob))   {
+        <div class="container empty-blob">
+         
+            <p>This module has no actual content linked to it. You can use it as a container for sub-modules. <a href="#" onclick="toggleSurveyEditor()">Alternatively, you can add content by clicking here.</a></p>
+            
+        </div>
+}
+        <div id="surveyCreatorContainer"></div>
+    </div>
+    <div class="tab-pane fade container" id="users">
+        <ul class="list-group ">
+            @foreach (var user in Model.ModuleUsers.OrderBy(user => user.Role))
+            {
+                <li class="list-group-item">
 
-<div id="surveyCreatorContainer"></div>
+                    <form asp-action="UpdateModuleUsers" asp-route-id="@Model.Id" class="form-inline">
+
+                        <input type="hidden" name="@nameof(ModuleUser.Id)" value="@user.Id"/>
+                        <input type="hidden" name="@nameof(ModuleUser.ApplicationUserId)" value="@user.ApplicationUserId"/>
+                        <input type="hidden" name="@nameof(ModuleUser.ModuleId)" value="@user.ModuleId"/>
+                        <input type="hidden" name="@nameof(ModuleUser.Role)" value="@user.Role"/>
+
+                        <input class="form-control form-control-sm mr-sm-2" type="text" readonly value="@user.ApplicationUser.Email">
+                        <input class="form-control form-control-sm mr-sm-2 " type="text" readonly value="@user.Role.ToString()">
+                        <div class="form-check form-check-inline  mr-sm-2">
+                            <input type="checkbox" name="@nameof(ModuleUser.Locked)" checked="@user.Locked" class="form-check-input"/>
+                            <label class="form-check-label">Module Locked</label>
+                        </div>
+
+                        <button type="submit" value="remove" name="command" class="btn btn-sm btn-danger  mr-sm-2"> Remove</button>
+                        <button type="submit" value="update" name="command" class="btn btn-sm btn-primary"> Update</button>
+
+                    </form>
+                </li>
+            }
+            <li class="list-group-item">
+                <div class="row">
+                    <div class="col-6">
+                        Add User
+
+                        <form asp-action="UpdateModuleUsers" class="form-inline">
+                            <div class="form-check form-check-inline  mr-sm-2">
+                                <input type="checkbox" name="@nameof(ModuleUser.Locked)" class="form-check-input" checked/>
+                                <label class="form-check-label">Module Locked</label>
+                            </div>
+                            <select class="form-control mr-sm-2" name="@nameof(ModuleUser.ApplicationUserId)" asp-items="users.Where(item => !Model.ModuleUsers.Any(user => user.Role == ModuleUserRole.User && user.ApplicationUserId == item.Value)).ToList()"></select>
+                            <input type="hidden" name="@nameof(ModuleUser.ModuleId)" value="@Model.Id"/>
+                            <input type="hidden" name="@nameof(ModuleUser.Role)" value="@ModuleUserRole.User"/>
+                            <button type="submit" value="add" name="command" class="btn btn-sm btn-primary"> Add</button>
+
+                        </form>
+                    </div>
+                    <div class="col-6">
+                        Add Admin
+
+                        <form asp-action="UpdateModuleUsers" class="form-inline">
+                            <div class="form-check form-check-inline  mr-sm-2">
+                                <input type="checkbox" name="@nameof(ModuleUser.Locked)" class="form-check-input" checked/>
+                                <label class="form-check-label">Module Locked</label>
+                            </div>
+                            <select class="form-control mr-sm-2" name="@nameof(ModuleUser.ApplicationUserId)" asp-items="moduleAdminUsers.Where(item => !Model.ModuleUsers.Any(user => user.Role == ModuleUserRole.Admin && user.ApplicationUserId == item.Value)).ToList()"></select>
+                            <input type="hidden" name="@nameof(ModuleUser.ModuleId)" value="@Model.Id"/>
+                            <input type="hidden" name="@nameof(ModuleUser.Role)" value="@ModuleUserRole.Admin"/>
+                            <button type="submit" value="add" name="command" class="btn btn-sm btn-primary"> Add</button>
+
+                        </form>
+                    </div>
+                </div>
+
+            </li>
+        </ul>
+    </div>
+    
+</div>
+
 
 <script>
 
@@ -40,19 +161,74 @@ function toggleSurveyEditor(){
     for (let el of document.getElementsByClassName("empty-blob")) {
         el.style.display = 'none';
     }
+    SurveyCreator
+                   .StylesManager
+                   .applyTheme("bootstrap");
+    initCKEditor();
+    
     surveyContainer.innerHTML = "";
      var options = {showEmbededSurveyTab: false, showJSONEditorTab: false}; //see examples below
        var surveyCreator = new SurveyCreator.SurveyCreator("surveyCreatorContainer", options);
        surveyCreator.text = blobElement.value;
        //set function on save callback
+         
        surveyCreator.saveSurveyFunc = function(){
            blobElement.value = surveyCreator.text;
            document.getElementById("mainForm").submit();
        }; 
-    }
-   window.onload = function (){
-     if (blobElement.value){
-                toggleSurveyEditor();    
+}
+
+function initCKEditor(){
+  
+    
+    var CkEditor_ModalEditor = {
+        afterRender: function (modalEditor, htmlElement) {
+            if (typeof CKEDITOR === "undefined") 
+                return;
+            var editor = CKEDITOR.replace(htmlElement);
+            var isUpdating = false;
+            editor.on("change", function () {
+                isUpdating = true;
+                modalEditor.editingValue = editor.getData();
+                isUpdating = false;
+            });
+            editor.setData(modalEditor.editingValue);
+            modalEditor.onValueUpdated = function (newValue) {
+                if (!isUpdating) {
+                    editor.setData(newValue);
+                }
+            };
+        },
+        destroy: function (modalEditor, htmlElement) {
+            if (typeof CKEDITOR === "undefined") 
+                return;
+            var instance = CKEDITOR.instances[htmlElement.id];
+            if (instance) {
+                instance.removeAllListeners();
+                instance.destroy(true);
+                CKEDITOR.remove(instance);
             }
+        }
+    };
+    SurveyCreator
+        .SurveyPropertyModalEditor
+        .registerCustomWidget("html", CkEditor_ModalEditor);
+    // SurveyCreator
+    //     .SurveyPropertyModalEditor
+    //     .registerCustomWidget("text", CkEditor_ModalEditor);
+    
+    
+}
+   window.onload = function (){
+    var loaded = false;
+    $('a[data-toggle="tab"]').on('show.bs.tab', function (event) {
+      if (event.currentTarget.href.endsWith("content") && !loaded){
+        if (blobElement.value){
+                      toggleSurveyEditor();    
+                      loaded = true;
+                  }
+      }
+    })
+     
    }
 </script>

@@ -27,6 +27,8 @@
             <td>@module.ModuleUsers.Count(user => user.Role == ModuleUserRole.Admin) </td>
             <td>
                 <a asp-action="GetModule" asp-route-id="@module.Id">Manage Module</a>
+                
+                <a asp-action="RemoveModule" asp-route-id="@module.Id">Remove</a>
             </td>
         </tr>
     }

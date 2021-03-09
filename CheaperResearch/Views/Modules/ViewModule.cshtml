@@ -1,8 +1,127 @@
 @model CheaperResearch.Data.Module?
 
 @{
-    ViewBag.Title = "title";
+    ViewBag.Title = Model.Name;
     Layout = "_Layout";
+    var result = Model.ModuleResults.FirstOrDefault();
 }
 
-<h2>title</h2>
+@if (!string.IsNullOrEmpty(Model.Blob))
+{
+    if (Model.ModuleUsers.Exists(user => user.Locked))
+    {
+        <p>This module is currently locked</p>
+    }
+    else
+    {
+        <div id="surveyElement" class="w-100 d-inline-block"></div>
+        <script>
+                window.onload = function (){
+                    Survey.StylesManager.applyTheme("bootstrap");
+                    var json = @Html.Raw(Model.Blob);
+                    window.survey = new Survey.Model(json, "surveyElement");
+                    var currentProgress = @Html.Raw(string.IsNullOrEmpty(result?.Blob)? "null": result.Blob);
+                    if (currentProgress){
+                        loadSurveyData(currentProgress);
+                    }
+                    survey.sendResultOnPageNext = true;
+                    window.finished = @((result?.Finished is true).ToString().ToLowerInvariant());
+                    if (finished){
+                        survey.clear(false);
+                    }
+                    survey.mode = finished? "display": "edit";
+                    window.timerId = 0;
+                    
+                    
+                    survey
+                        .onCurrentPageChanged
+                        .add(function (survey, options) {
+                            saveSurveyData(survey, false);
+                        });
+                    survey
+                        .onComplete
+                        .add(function (survey, options) {
+                                                        
+                            survey.mode = "display";
+                            //save the data on survey complete. You may call another function to store the final results
+                            saveSurveyData(survey, true);
+                        });
+                    var focused = false;
+                    var wasBlurred = false;
+                    window.addEventListener("focus", function(){
+                        if (focused){
+                            return;
+                        }
+                        focused = true;
+                        if(wasBlurred){
+                            loadSurveyDataRemote();
+                        }
+                        if (!finished){                            
+                            survey.mode = 'edit';
+                        }
+                        clearTimeout(timerId);
+                       timerId = window.setTimeout(function () {
+                                              saveSurveyData(survey);
+                                          }, 10000);
+                    })
+                    
+                    window.addEventListener("blur", function(){
+                        if (!focused){
+                            return;
+                            }
+                        focused = false;
+                        wasBlurred = true;
+                        survey.mode = 'display';
+                      saveSurveyData(survey, false, true); 
+                    })
+                    
+                };
+                
+                function loadSurveyDataRemote(){
+                    
+                }
+                
+                function saveSurveyData(survey, complete, noTimer) {
+                    if (finished){
+                    return;    
+                    }
+                  console.log("saveSurveyData", saveSurveyData);
+                  return fetch("@Url.Action("RecordModuleResult", new { id = @Model.Id})", {
+                    method: "POST", 
+                    headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                    body: JSON.stringify(
+                        {
+                            blob: JSON.stringify({
+                                currentPageNo: survey.currentPageNo,
+                                data: survey.data
+                            }),
+                            complete: !!complete
+                        })
+                  }).then(res => {
+                    console.log("Request complete! response:", res);
+                  }).finally(() => {
+                      if (!complete ){
+                          clearTimeout(timerId);
+                          if (!noTimer)
+                          timerId = window.setTimeout(function () {
+                                                  saveSurveyData(survey);
+                                              }, 10000);
+                      }else{
+                          finished = true;
+                           survey.clear(false);
+                          }
+                  });
+                  
+                }
+                function loadSurveyData(prevRes) {
+                     survey.data = prevRes.data;
+                     if (prevRes.currentPageNo) {
+                        survey.currentPageNo = prevRes.currentPageNo;
+                     }
+                 }
+        </script>
+    }
+}
